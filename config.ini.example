@@ -1,3 +1,4 @@
 [aniarc-skype-bot]
 hostname = www.example.com
 port = 12345
+topic = channel_topic頻道標題CJK_ok

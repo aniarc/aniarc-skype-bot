@@ -9,6 +9,7 @@ import random
 import string
 import cgi
 from ConfigParser import SafeConfigParser
+import codecs
 
 def logger(content, show = True):
 	logfile = open("log.txt", "a")
@@ -19,9 +20,11 @@ def logger(content, show = True):
 		print content
 
 parser = SafeConfigParser()
-parser.read('config.ini')
+with codecs.open('config.ini', 'r', encoding='utf-8') as f:
+    parser.readfp(f)
 HOST_NAME = parser.get('aniarc-skype-bot', 'hostname')
 PORT_NUMBER = int(parser.get('aniarc-skype-bot', 'port'))
+CHAT_TOPIC = parser.get('aniarc-skype-bot', 'topic')
 logger('Config: config.ini read okay')
 
 def AttachmentStatusText(status):
@@ -42,7 +45,7 @@ logger('Logger: Appending...')
 def skypeSendBitbucket(msg, payload):
 	good = random.choice(['nice work!', 'good job!', 'well done!', 'sounds great!', 'how lovely!', 'thank you!', 'wonderful!', 'tremendous!', 'keep going!', 'you made it!'])
 	for chat in skype.Chats:
-		if(u'程式' in chat.Topic and u'aniarc' in chat.Topic):
+		if(CHAT_TOPIC in chat.Topic):
 			output = 'bitbucket: '
 			for c in msg['commits']:
 				output += str(c['author']) + ' commits to ' + str(msg['repository']['name']) + ' / ' + str(c['branch']) + ' : ' + '\n'
@@ -60,23 +63,30 @@ def skypeSendGithub(msg, payload):
 		output += msg['issue']['title'] + '\n'
 		output += msg['issue']['url'] + '\n'
 	else:
-		for c in msg['commits']:
-			output += str(c['author']['name']) + ' commits to ' + str(msg['repository']['name']) + ' / ' + str(msg['ref'].replace('refs/heads/','')) + ' (github): ' + '\n'
-			output += str(c['message']) + '\n'
-		output += msg['compare'] + '\n'
+		output += str(msg['head_commit']['author']['name']) + ' commits to ' + str(msg['repository']['name']) + ' / ' + str(msg['ref'].replace('refs/heads/','')) + ' (github): ' + '\n'
+		output += str(msg['head_commit']['message']) + '\n'
 		if (payload.find('db/migrate')>0):
 			output += 'db schema changed, please rake db:migrate !' + '\n'
 		if (payload.find('Gemfile')>0):
 			output += 'Gemfile changed, please bundle install!' + '\n'
 		if (msg["forced"] == "true"):
-			output += 'Caution, FORCED UPDATE!' + '\n'
+			output += 'warning, FORCED UPDATE!' + '\n'
+		output += msg['compare'] + '\n'
+		i = 0
+		for c in msg['commits']:
+			i = i+1
+			if (i >= len(msg['commits'])):
+				continue
+			else:
+				output += str(c['author']['name']) + ': ' + str(c['message']) + '\n'
+
 	for chat in skype.Chats:
-		if(u'程式' in chat.Topic and u'aniarc' in chat.Topic):
+		if(CHAT_TOPIC in chat.Topic):
 			chat.SendMessage(output)
 
 def skypeSendErrbit(param):
 	for chat in skype.Chats:
-		if((u'程式' in chat.Topic) and (u'aniarc' in chat.Topic) and (str(param['app'])[2:-2].find('-prod')>0)):
+		if((CHAT_TOPIC in chat.Topic) and (str(param['app'])[2:-2].find('-prod')>0)):
 			output  = str(param['app'])[2:-2] + ' (' + str(param['hostname'])[2:-2] + ') error on ' + str(param['where'])[2:-2] + '.\n'
 			output += str(param['url'])[2:-2] + '\n'
 			output += str(param['msg'])[2:-2] + '\n'
@@ -122,7 +132,6 @@ def main(server_class=BaseHTTPServer.HTTPServer, handler_class=REST):
 	httpd.server_close()
 	logger( "Server: Stop Listening %s:%s" % (HOST_NAME, PORT_NUMBER) )
 	logger( "Logger: Close" )
-	logfile.close()
 
 if __name__ == '__main__':
 	main()
