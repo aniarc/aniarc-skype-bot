@@ -84,13 +84,12 @@ def skypeSendGithub(msg, payload):
 		if(CHAT_TOPIC in chat.Topic):
 			chat.SendMessage(output)
 
-def skypeSendErrbit(param):
+def skypeSendErrbit(param, errbit_url):
 	for chat in skype.Chats:
-		if((CHAT_TOPIC in chat.Topic) and (str(param['app'])[2:-2].find('-prod')>0)):
-			output  = str(param['app'])[2:-2] + ' (' + str(param['hostname'])[2:-2] + ') error on ' + str(param['where'])[2:-2] + '.\n'
-			output += str(param['url'])[2:-2] + '\n'
-			output += str(param['msg'])[2:-2] + '\n'
-			output += str(param['errbit_url'])[2:-2] + '\n'
+		if((CHAT_TOPIC in chat.Topic)):# and (str(param['app_name']).find('-prod')>0)):
+			output  = str(param['app_name']) + ' (' + str(param['hosts'].itervalues().next()['value']) + ') error on ' + str(param['where']) + '.\n'
+			output += str(errbit_url) + '\n'
+			output += str(param['message']) + '\n'
 			chat.SendMessage(output)
 
 class REST(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -118,8 +117,10 @@ class REST(BaseHTTPServer.BaseHTTPRequestHandler):
 
 		else:
 			param = cgi.parse_qs(post_body)
-			skypeSendErrbit(param)
-			logger("Errbit: %s %s error on %s" % ( str(param['hostname'])[2:-2], str(param['app'])[2:-2], str(param['where'])[2:-2] ) )
+			#payload = urllib.unquote(post_body)[8:].replace('\\"','"')
+			msg = json.loads(param['problem'][0])
+			skypeSendErrbit(msg, param['errbit_url'][0])
+			logger("Errbit: %s error on %s" % ( str(msg['app_name']), str(msg['where']) ) )
 
 def main(server_class=BaseHTTPServer.HTTPServer, handler_class=REST):
 
