@@ -85,12 +85,23 @@ def skypeSendGithub(msg, payload):
 			chat.SendMessage(output)
 
 def skypeSendErrbit(param, errbit_url):
+	notify_when_times = [2, 3, 7, 15, 25, 50, 100]
+	output = ''
 	for chat in skype.Chats:
-		if((CHAT_TOPIC in chat.Topic)):# and (str(param['app_name']).find('-prod')>0)):
-			output  = str(param['app_name']) + ' (' + str(param['hosts'].itervalues().next()['value']) + ') error on ' + str(param['where']) + '.\n'
-			output += str(errbit_url) + '\n'
-			output += str(param['message']) + '\n'
-			chat.SendMessage(output)
+		if((CHAT_TOPIC in chat.Topic) and (str(param['app_name']).find('-prod')>0)):
+			if main.last_error == param['where']:
+				main.last_error_count = main.last_error_count + 1
+				if main.last_error_count in notify_when_times:
+					output = 'Last error occured ' + str(main.last_error_count) + ' times!'
+					chat.SendMessage(output)
+					return
+			else:
+				main.last_error = param['where']
+				main.last_error_count = 0
+				output += str(param['app_name']) + ' (' + str(param['hosts'].itervalues().next()['value']) + ') error on ' + str(param['where']) + '.\n'
+				output += str(errbit_url) + '\n'
+				output += str(param['message']) + '\n'
+				chat.SendMessage(output)
 
 class REST(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -117,7 +128,6 @@ class REST(BaseHTTPServer.BaseHTTPRequestHandler):
 
 		else:
 			param = cgi.parse_qs(post_body)
-			#payload = urllib.unquote(post_body)[8:].replace('\\"','"')
 			msg = json.loads(param['problem'][0])
 			skypeSendErrbit(msg, param['errbit_url'][0])
 			logger("Errbit: %s error on %s" % ( str(msg['app_name']), str(msg['where']) ) )
@@ -126,6 +136,8 @@ def main(server_class=BaseHTTPServer.HTTPServer, handler_class=REST):
 
 	httpd = server_class((HOST_NAME, PORT_NUMBER), REST)
 	logger( "Server: Starts Listening %s:%s" % (HOST_NAME, PORT_NUMBER) )
+	main.last_error = ''
+	main.last_error_count = 0
 	try:
 		httpd.serve_forever()
 	except KeyboardInterrupt:
