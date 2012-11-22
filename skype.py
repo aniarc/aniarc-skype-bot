@@ -1,20 +1,27 @@
 # -*- coding: utf-8 -*-
 
-import Skype4Py
 import json
 import BaseHTTPServer
 import time
-import urllib
 import random
 import string
 import cgi
-from ConfigParser import SafeConfigParser
 import codecs
+import re
+import urllib
+import Skype4Py
+from lxml import etree
+from bs4 import BeautifulSoup
+from ConfigParser import SafeConfigParser
+
+URL_PTN = r'(https?://\S+)'
+URL_PTN2 = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
 
 def logger(content, show = True):
-	logfile = open("log.txt", "a")
+	logfile = codecs.open("log.txt", mode="a", encoding="utf-8")
 	content = str(time.asctime()) + ": " + content
-	logfile.write(content + "\n")
+	logfile.write(content)
+	logfile.write("\n")
 	logfile.flush()
 	if show:
 		print content
@@ -35,12 +42,36 @@ def OnAttach(status):
     if status == Skype4Py.apiAttachAvailable:
         skype.Attach()
 
+def skypeMessageStatus(msg, Status):
+	if Status == 'RECEIVED':
+		m = re.findall(URL_PTN, msg.Body)
+		if m:
+			logger("Parser: %s says url: %s" % ( str(msg.FromHandle), str(m[0])) )
+
+			t1 = time.time()
+			hparser = etree.HTMLParser(encoding='utf-8')
+			htree   = etree.parse(m[0], hparser)
+			title = htree.xpath(".//title")[0].text
+			t2 = time.time()
+			logger("Parser: in %s we got title: %s" % ( str(t2 - t1), title ) )
+			msg.Chat.SendMessage(title)
+			
+			#t1 = time.time()
+			#title = BeautifulSoup(urllib.urlopen(m[0])).title.string
+			#t2 = time.time()
+			#print(msg.FromHandle + ' the title is: ' + title)
+			#print(msg.FromHandle + ' lookup took: ' + str(t2 - t1))
+			#msg.Chat.SendMessage(title)
+
+		msg.MarkAsSeen()
+
 skype = Skype4Py.Skype()
 skype.OnAttachmentStatus = OnAttach
 logger('Skyper: Connecting...')
 skype.Attach()
 logger('Logger: Appending...')
-
+skype.OnMessageStatus =	skypeMessageStatus
+logger('Parser: Watching URLs...')
 
 def skypeSendBitbucket(msg, payload):
 	good = random.choice(['nice work!', 'good job!', 'well done!', 'sounds great!', 'how lovely!', 'thank you!', 'wonderful!', 'tremendous!', 'keep going!', 'you made it!'])
