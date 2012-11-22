@@ -48,20 +48,20 @@ def skypeMessageStatus(msg, Status):
 		if m:
 			logger("Parser: %s says url: %s" % ( str(msg.FromHandle), str(m[0])) )
 
+			#t1 = time.time()
+			#hparser = etree.HTMLParser(encoding='utf-8')
+			#htree   = etree.parse(m[0], hparser)
+			#title = htree.xpath(".//title")[0].text
+			#t2 = time.time()
+			#logger("Parser: in %s we got title: %s" % ( str(t2 - t1), title ) )
+			#msg.Chat.SendMessage(title)
+			# etree can't handle encoding properly....
+			
 			t1 = time.time()
-			hparser = etree.HTMLParser(encoding='utf-8')
-			htree   = etree.parse(m[0], hparser)
-			title = htree.xpath(".//title")[0].text
+			title = BeautifulSoup(urllib.urlopen(m[0])).title.string
 			t2 = time.time()
 			logger("Parser: in %s we got title: %s" % ( str(t2 - t1), title ) )
 			msg.Chat.SendMessage(title)
-			
-			#t1 = time.time()
-			#title = BeautifulSoup(urllib.urlopen(m[0])).title.string
-			#t2 = time.time()
-			#print(msg.FromHandle + ' the title is: ' + title)
-			#print(msg.FromHandle + ' lookup took: ' + str(t2 - t1))
-			#msg.Chat.SendMessage(title)
 
 		msg.MarkAsSeen()
 
