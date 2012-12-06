@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-
-import json
+import sys
+import os
+import codecs
 import BaseHTTPServer
 import time
+import json
 import random
 import string
 import cgi
-import codecs
 import re
 import urllib
 import Skype4Py
-from lxml import etree
 from bs4 import BeautifulSoup
 from ConfigParser import SafeConfigParser
 
@@ -24,7 +24,7 @@ def logger(content, show = True):
 	logfile.write("\n")
 	logfile.flush()
 	if show:
-		print content
+		print content.encode('cp950', errors='replace') # cp950 for chinese windows cmd console
 
 parser = SafeConfigParser()
 with codecs.open('config.ini', 'r', encoding='utf-8') as f:
@@ -47,22 +47,12 @@ def skypeMessageStatus(msg, Status):
 		m = re.findall(URL_PTN, msg.Body)
 		if m:
 			logger("Parser: %s says url: %s" % ( str(msg.FromHandle), str(m[0])) )
-
-			#t1 = time.time()
-			#hparser = etree.HTMLParser(encoding='utf-8')
-			#htree   = etree.parse(m[0], hparser)
-			#title = htree.xpath(".//title")[0].text
-			#t2 = time.time()
-			#logger("Parser: in %s we got title: %s" % ( str(t2 - t1), title ) )
-			#msg.Chat.SendMessage(title)
-			# etree can't handle encoding properly....
-			
 			t1 = time.time()
 			title = BeautifulSoup(urllib.urlopen(m[0])).title.string
 			t2 = time.time()
-			logger("Parser: in %s we got title: %s" % ( str(t2 - t1), title ) )
 			msg.Chat.SendMessage(title)
-
+			logger("Parser: in %s we got title:" % str(t2 - t1) )
+			logger(title)
 		msg.MarkAsSeen()
 
 skype = Skype4Py.Skype()
@@ -134,6 +124,14 @@ def skypeSendErrbit(param, errbit_url):
 				output += str(param['message']) + '\n'
 				chat.SendMessage(output)
 
+def skypeSendUservoice(event, msg):
+	for chat in skype.Chats:
+		if(CHAT_TOPIC in chat.Topic):
+			output = 'uservoice: '
+			output += str(event) + '\n'
+			output += str(msg) + '\n'
+			chat.SendMessage(output)
+
 class REST(BaseHTTPServer.BaseHTTPRequestHandler):
 
 	def do_GET(self):	
@@ -156,6 +154,12 @@ class REST(BaseHTTPServer.BaseHTTPRequestHandler):
 			msg = json.loads(payload)
 			skypeSendGithub(msg, payload)
 			logger("Github: %s commits to %s/%s %s" % ( str(msg['head_commit']['author']['name']), str(msg['repository']['name']), str(msg['ref'].replace('refs/heads/','')), ("true" if str(msg['forced']) == "true" else "") ) )
+
+		elif (urllib.unquote(post_body).find('signature=')>0):
+			param = cgi.parse_qs(post_body)
+			msg = json.loads(param['data'][0])
+			skypeSendUservoice(str(param['event'][0]), msg)
+			logger("Uservoice: %s %s" % (str(param['event'][0]), str(msg)) )
 
 		else:
 			param = cgi.parse_qs(post_body)
