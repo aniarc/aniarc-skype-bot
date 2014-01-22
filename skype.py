@@ -44,6 +44,7 @@ def OnAttach(status):
 
 def skypeMessageStatus(msg, Status):
 	if Status == 'RECEIVED':
+		m = exec(msg)
 		m = re.findall(URL_PTN, msg.Body)
 		if m:
 			logger("Parser: %s says url: %s" % ( str(msg.FromHandle), str(m[0])) )
